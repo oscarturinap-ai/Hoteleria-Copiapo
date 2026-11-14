@@ -13,7 +13,7 @@ export const hoteles = [
 
 let seq = 0;
 export const tramo = (hotelId: string, desde: string, hasta: string, tarifaNoche: number): Tramo => ({
-  id: `t${++seq}`, hotelId, desde, hasta, tarifaNoche, habitacion: '', motivo: '',
+  id: `t${++seq}`, hotelId, desde, hasta, tarifaNoche, habitacionId: null, motivo: '',
 });
 export const adic = (p: Partial<CargoAdicional> & Pick<CargoAdicional, 'fecha' | 'hotelId'>): CargoAdicional => ({
   id: `a${++seq}`, concepto: 'ALMUERZO', descripcion: '', cantidad: 1, precioUnitario: 12_000, ...p,

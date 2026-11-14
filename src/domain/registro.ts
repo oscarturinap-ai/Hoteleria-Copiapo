@@ -1,7 +1,8 @@
 import { diffDias, enRango, esFechaValida, noches } from './fechas';
 import { multiplicar, sumar } from './dinero';
 import { normalizarRut, validarRut } from './rut';
-import type { CLP, Concepto, Hotel, Id, ISODate, Registro, Tarifa, Tramo } from './types';
+import { erroresInventario } from './habitaciones';
+import type { CLP, Concepto, Habitacion, Hotel, Id, ISODate, Registro, Tarifa, Tramo } from './types';
 
 // ───────────────────────── Derivados ─────────────────────────
 
@@ -107,8 +108,12 @@ export interface ContextoValidacion {
   hoteles: readonly Hotel[];
   empresaIds: ReadonlySet<Id>;
   solicitanteIds: ReadonlySet<Id>;
-  /** Otros registros, para detectar doble asignación del mismo RUT. */
+  /** Otros registros, para detectar doble asignación del mismo RUT y sobreventa. */
   otrosRegistros: readonly Registro[];
+  /** Inventario; si se omite no se valida capacidad de habitaciones. */
+  habitaciones?: readonly Habitacion[];
+  /** Versión guardada del registro (permite conservar una habitación luego desactivada). */
+  anterior?: Registro | null;
 }
 
 export interface ResultadoValidacion {
@@ -207,6 +212,11 @@ export function validarRegistro(r: Registro, ctx: ContextoValidacion): Resultado
         errores.push(`Superposición con folio ${o.folio} (${ingreso(o)} → ${salida(o)}) para el mismo RUT.`);
       }
     }
+  }
+
+  // Inventario de habitaciones (sobreventa, pertenencia al hotel, habitaciones inactivas)
+  if (fechasOk && ctx.habitaciones) {
+    errores.push(...erroresInventario(r, ctx.otrosRegistros, ctx.habitaciones, ctx.anterior));
   }
 
   return { errores, advertencias };

@@ -6,3 +6,4 @@ export * from './registro';
 export * from './edp';
 export * from './exportar';
 export * from './operaciones';
+export * from './habitaciones';

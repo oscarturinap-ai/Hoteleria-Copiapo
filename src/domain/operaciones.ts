@@ -40,6 +40,10 @@ function moverSalida(tramos: Tramo[], fecha: ISODate): Tramo[] | null {
 export interface OpcionesCheckIn {
   /** Llegada tardía: si true, el IN se mueve a la fecha real y no se cobran las noches no usadas. */
   ajustarIngreso: boolean;
+  /** Habitación a asignar al tramo de llegada (si se indica). */
+  habitacionId?: Id | null;
+  /** El hotel de llegada tiene inventario: no se permite check-in sin habitación. */
+  requiereHabitacion?: boolean;
 }
 
 export function checkIn(r: Registro, fecha: ISODate, op: OpcionesCheckIn): Resultado<Registro> {
@@ -60,6 +64,12 @@ export function checkIn(r: Registro, fecha: ISODate, op: OpcionesCheckIn): Resul
       detalle += ` (llegada tardía: se mantienen las noches desde el ${formatoFecha(inProg)})`;
     }
   }
+  const llegada = n.tramos.find((t) => fecha >= t.desde && fecha < t.hasta) ?? n.tramos[0]!;
+  if (op.habitacionId && op.habitacionId !== llegada.habitacionId) {
+    llegada.habitacionId = op.habitacionId;
+    detalle += ' · habitación asignada';
+  }
+  if (op.requiereHabitacion && !llegada.habitacionId) return err('Asigne una habitación para hacer el check-in.');
   return ok(n, detalle);
 }
 
@@ -220,7 +230,7 @@ export function describirCambios(a: Registro, b: Registro, n: Nombres): string {
   if (JSON.stringify(a.noShow) !== JSON.stringify(b.noShow) && b.noShow) c.push(`no show ${b.noShow.modalidad.toLowerCase()}`);
   if (ingreso(a) !== ingreso(b)) c.push(`IN ${formatoFecha(ingreso(a))} → ${formatoFecha(ingreso(b))}`);
   if (salida(a) !== salida(b)) c.push(`OUT ${formatoFecha(salida(a))} → ${formatoFecha(salida(b))}`);
-  const firmaT = (t: Tramo) => `${n.hotel(t.hotelId)} ${formatoFecha(t.desde)}–${formatoFecha(t.hasta)} ${formatoCLP(t.tarifaNoche)}${t.habitacion ? ` hab. ${t.habitacion}` : ''}`;
+  const firmaT = (t: Tramo) => `${n.hotel(t.hotelId)} ${formatoFecha(t.desde)}–${formatoFecha(t.hasta)} ${formatoCLP(t.tarifaNoche)}${t.habitacionId ? ` hab. ${n.habitacion?.(t.habitacionId) ?? '?'}` : ''}`;
   const ta = a.tramos.map(firmaT).join(' | ');
   const tb = b.tramos.map(firmaT).join(' | ');
   if (ta !== tb) c.push(`tramos: ${tb}`);

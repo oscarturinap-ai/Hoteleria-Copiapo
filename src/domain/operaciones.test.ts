@@ -31,6 +31,11 @@ describe('check-in', () => {
     expect(r.tramos).toHaveLength(1);
     expect(r.tramos[0]).toMatchObject({ hotelId: MUR, desde: '2026-11-11', hasta: '2026-11-13' });
   });
+  it('asigna habitación al llegar y la exige si el hotel tiene inventario', () => {
+    expect(checkIn(reservado(), '2026-11-09', { ajustarIngreso: false, requiereHabitacion: true }).ok).toBe(false);
+    const r = valor(checkIn(reservado(), '2026-11-09', { ajustarIngreso: false, requiereHabitacion: true, habitacionId: 'h101' }));
+    expect(r.tramos[0]!.habitacionId).toBe('h101');
+  });
   it('rechaza check-in anticipado, en la salida o de un estado no reservado', () => {
     expect(checkIn(reservado(), '2026-11-08', { ajustarIngreso: false }).ok).toBe(false);
     expect(checkIn(reservado(), '2026-11-12', { ajustarIngreso: true }).ok).toBe(false);
@@ -119,8 +124,8 @@ describe('perfil de huésped e historial', () => {
   });
   it('describe cambios relevantes', () => {
     const a = reg();
-    const b = { ...a, estado: 'IN_HOUSE' as const, tramos: [{ ...a.tramos[0]!, hasta: '2026-11-13', habitacion: '204' }], adicionales: [adic({ fecha: '2026-11-10', hotelId: TAB })] };
-    const n = { hotel: () => 'Tab', empresa: () => 'E', solicitante: () => 'S' };
+    const b = { ...a, estado: 'IN_HOUSE' as const, tramos: [{ ...a.tramos[0]!, hasta: '2026-11-13', habitacionId: 'hab-204' }], adicionales: [adic({ fecha: '2026-11-10', hotelId: TAB })] };
+    const n = { hotel: () => 'Tab', empresa: () => 'E', solicitante: () => 'S', habitacion: (id: string) => id.replace('hab-', '') };
     const d = describirCambios(a, b, n);
     expect(d).toMatch(/estado Check-out → In-house/);
     expect(d).toMatch(/OUT 12-11-2026 → 13-11-2026/);

@@ -13,6 +13,7 @@ import {
 import type { Concepto, Hotel, Tarifa, TipoHotel } from '../../domain';
 import { Campo, InputCLP } from '../components/ui';
 import { nuevoId, useStore } from '../store';
+import { InventarioHabitaciones } from './InventarioHabitaciones';
 
 const CONCEPTOS: Concepto[] = ['ALOJAMIENTO', ...CONCEPTOS_ADICIONALES];
 
@@ -106,6 +107,8 @@ export function HotelesTarifasPage() {
           </button>
         </div>
       </div>
+
+      <InventarioHabitaciones />
 
       <div className="panel">
         <h3>Tarifario neto <small>(alojamiento incluye desayuno)</small></h3>

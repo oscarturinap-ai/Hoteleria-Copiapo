@@ -1,10 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { describirCambios, normalizarRut, validarRegistro } from '../domain';
-import type { AccionRegistro, Empresa, EstadoPago, Hotel, Id, Registro, Solicitante, Tarifa } from '../domain';
+import type { AccionRegistro, Empresa, EstadoPago, Habitacion, Hotel, Id, Registro, Solicitante, Tarifa } from '../domain';
 import type { Repository, Snapshot } from '../persistence/repository';
 
 export interface Datos {
   hoteles: Hotel[];
+  habitaciones: Habitacion[];
   tarifas: Tarifa[];
   empresas: Empresa[];
   solicitantes: Solicitante[];
@@ -17,6 +18,9 @@ interface Store extends Datos {
   cargando: boolean;
   recargar: () => Promise<void>;
   nombreHotel: (id: Id) => string;
+  nombreHabitacion: (id: Id) => string;
+  /** El hotel tiene inventario de habitaciones activas (se exige asignación al check-in). */
+  tieneInventario: (hotelId: Id) => boolean;
   nombreEmpresa: (id: Id) => string;
   nombreSolicitante: (id: Id) => string;
   importar: (s: Snapshot) => Promise<void>;
@@ -32,7 +36,7 @@ const CLAVE_OPERADOR = 'hoteleria-copiapo:operador';
 
 const Ctx = createContext<Store | null>(null);
 
-const VACIO: Datos = { hoteles: [], tarifas: [], empresas: [], solicitantes: [], registros: [], estadosPago: [] };
+const VACIO: Datos = { hoteles: [], habitaciones: [], tarifas: [], empresas: [], solicitantes: [], registros: [], estadosPago: [] };
 
 export function StoreProvider({ repo, children }: { repo: Repository; children: ReactNode }) {
   const [datos, setDatos] = useState<Datos>(VACIO);
@@ -44,15 +48,16 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
   }, []);
 
   const recargar = useCallback(async () => {
-    const [hoteles, tarifas, empresas, solicitantes, registros, estadosPago] = await Promise.all([
+    const [hoteles, habitaciones, tarifas, empresas, solicitantes, registros, estadosPago] = await Promise.all([
       repo.hoteles.list(),
+      repo.habitaciones.list(),
       repo.tarifas.list(),
       repo.empresas.list(),
       repo.solicitantes.list(),
       repo.registros.list(),
       repo.estadosPago.list(),
     ]);
-    setDatos({ hoteles, tarifas, empresas, solicitantes, registros, estadosPago });
+    setDatos({ hoteles, habitaciones, tarifas, empresas, solicitantes, registros, estadosPago });
     setCargando(false);
   }, [repo]);
 
@@ -66,6 +71,8 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       return (id: Id) => m.get(id) ?? '(desconocido)';
     };
     const nombreHotel = idx(datos.hoteles, (h) => h.nombre);
+    const nombreHabitacion = idx(datos.habitaciones, (h) => h.numero);
+    const conInventario = new Set(datos.habitaciones.filter((h) => h.activa).map((h) => h.hotelId));
     const nombreEmpresa = idx(datos.empresas, (e) => e.razonSocial);
     const nombreSolicitante = idx(datos.solicitantes, (s) => s.nombre);
 
@@ -87,11 +94,13 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
         empresaIds: new Set(datos.empresas.map((e) => e.id)),
         solicitanteIds: new Set(datos.solicitantes.map((x) => x.id)),
         otrosRegistros: datos.registros,
+        habitaciones: datos.habitaciones,
+        anterior: antes,
       });
       if (v.errores.length) return { ok: false, errores: v.errores };
 
       const acc: AccionRegistro = accion ?? (antes ? 'EDITADO' : 'CREADO');
-      const det = detalle ?? (antes ? describirCambios(antes, despues, { hotel: nombreHotel, empresa: nombreEmpresa, solicitante: nombreSolicitante }) : 'Registro creado');
+      const det = detalle ?? (antes ? describirCambios(antes, despues, { hotel: nombreHotel, empresa: nombreEmpresa, solicitante: nombreSolicitante, habitacion: nombreHabitacion }) : 'Registro creado');
       if (antes && acc === 'EDITADO' && !det) return { ok: true, registro: antes }; // sin cambios
       const ts = ahora();
       const folio = despues.folio || (await repo.siguiente('folioRegistro'));
@@ -117,6 +126,8 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       setOperador,
       guardarRegistro,
       nombreHotel,
+      nombreHabitacion,
+      tieneInventario: (hotelId) => conInventario.has(hotelId),
       nombreEmpresa,
       nombreSolicitante,
       importar: async (s) => {

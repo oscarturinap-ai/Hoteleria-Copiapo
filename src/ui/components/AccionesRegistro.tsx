@@ -2,6 +2,8 @@ import { useState } from 'react';
 import {
   CONCEPTOS_ADICIONALES,
   ETIQUETA_CONCEPTO,
+  ETIQUETA_TIPO_HAB,
+  disponibilidad,
   agregarCargo,
   anular,
   checkIn,
@@ -60,6 +62,14 @@ function DialogoAccion({ r, tipo, onClose }: { r: Registro; tipo: Dialogo; onClo
     precioUnitario: tarifaVigente(s.tarifas, tv.hotelId, 'ALMUERZO', hoy)?.monto ?? 0,
   }));
   const [errores, setErrores] = useState<string[]>([]);
+  // Habitación al check-in: tramo de llegada según la fecha real.
+  const tLlegada = r.tramos.find((t) => fecha >= t.desde && fecha < t.hasta) ?? r.tramos[0]!;
+  const [habId, setHabId] = useState<string>(tLlegada.habitacionId ?? '');
+  const requiereHab = tipo === 'checkin' && s.tieneInventario(tLlegada.hotelId);
+  const desdeDisp = ajustar && fecha > tLlegada.desde ? fecha : tLlegada.desde;
+  const dispLlegada = requiereHab && desdeDisp < tLlegada.hasta
+    ? disponibilidad(s.registros, s.habitaciones, tLlegada.hotelId, desdeDisp, tLlegada.hasta, r.id)
+    : [];
   const [ocupado, setOcupado] = useState(false);
 
   const setCargoP = (p: Partial<CargoAdicional>) => {
@@ -81,7 +91,7 @@ function DialogoAccion({ r, tipo, onClose }: { r: Registro; tipo: Dialogo; onClo
     let res: Resultado<Registro>;
     let accion: AccionRegistro;
     switch (tipo) {
-      case 'checkin': res = checkIn(r, fecha, { ajustarIngreso: ajustar }); accion = 'CHECK_IN'; break;
+      case 'checkin': res = checkIn(r, fecha, { ajustarIngreso: ajustar, habitacionId: habId || null, requiereHabitacion: requiereHab }); accion = 'CHECK_IN'; break;
       case 'checkout': res = checkOut(r, fecha, { ajustarSalida: ajustar }); accion = 'CHECK_OUT'; break;
       case 'noshow': res = marcarNoShow(r, { modalidad, nochesCobradas: modalidad === 'PARCIAL' ? nochesNS : 0 }); accion = 'NO_SHOW'; break;
       case 'cargo': res = agregarCargo(r, cargo); accion = 'CARGO'; break;
@@ -105,7 +115,7 @@ function DialogoAccion({ r, tipo, onClose }: { r: Registro; tipo: Dialogo; onClo
       <div className="ficha">
         <b>{r.huesped.nombre}</b> <span className="mono">{formatearRut(r.huesped.rut)}</span>
         <span>{s.nombreEmpresa(r.empresaId)}</span>
-        <span>{r.tramos.map((t) => `${s.nombreHotel(t.hotelId)}${t.habitacion ? ` (hab. ${t.habitacion})` : ''}`).join(' → ')}</span>
+        <span>{r.tramos.map((t) => `${s.nombreHotel(t.hotelId)}${t.habitacionId ? ` (hab. ${s.nombreHabitacion(t.habitacionId)})` : ''}`).join(' → ')}</span>
         <span>IN {formatoFecha(inProg)} · OUT {formatoFecha(outProg)} · {totalN} noche(s)</span>
       </div>
 
@@ -129,6 +139,19 @@ function DialogoAccion({ r, tipo, onClose }: { r: Registro; tipo: Dialogo; onClo
             </div>
           )}
         </>
+      )}
+
+      {requiereHab && (
+        <Campo label={`Habitación en ${s.nombreHotel(tLlegada.hotelId)} (obligatoria)`} ancho={320}>
+          <select value={habId} onChange={(e) => { setHabId(e.target.value); setErrores([]); }}>
+            <option value="">— Seleccionar —</option>
+            {dispLlegada.map((d) => (
+              <option key={d.habitacion.id} value={d.habitacion.id} disabled={d.libres === 0 && d.habitacion.id !== tLlegada.habitacionId}>
+                {d.habitacion.numero} · {ETIQUETA_TIPO_HAB[d.habitacion.tipo]} · {d.libres === 0 ? 'ocupada' : `${d.libres}/${d.habitacion.capacidad} libre`}
+              </option>
+            ))}
+          </select>
+        </Campo>
       )}
 
       {tipo === 'noshow' && (

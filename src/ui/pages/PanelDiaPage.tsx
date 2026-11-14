@@ -11,6 +11,7 @@ import {
   sumarDias,
   tramoVigente,
   panelDia,
+  ocupacionDia,
 } from '../../domain';
 import type { Registro } from '../../domain';
 import { AccionesRegistro } from '../components/AccionesRegistro';
@@ -28,6 +29,8 @@ export function PanelDiaPage() {
   const [abierto, setAbierto] = useState<Registro | 'nuevo' | null>(null);
 
   const p = useMemo(() => panelDia(s.registros, fecha), [s.registros, fecha]);
+  const occ = useMemo(() => ocupacionDia(s.registros, s.habitaciones, fecha), [s.registros, s.habitaciones, fecha]);
+  const llegadasSinHab = p.llegadas.filter((r) => s.tieneInventario(r.tramos[0]!.hotelId) && !r.tramos[0]!.habitacionId).length;
   const pendientes = [...p.llegadasPendientes, ...p.salidasVencidas];
   const hotelesActivos = s.hoteles.filter((h) => h.activo);
 
@@ -52,15 +55,26 @@ export function PanelDiaPage() {
       </div>
 
       <div className="kpis">
-        <Kpi label="Llegadas" valor={String(p.llegadas.length)} sub="reservados con IN hoy" />
+        <Kpi label="Llegadas" valor={String(p.llegadas.length)} sub={llegadasSinHab ? `${llegadasSinHab} sin habitación asignada` : 'reservados con IN hoy'} />
         <Kpi label="Salidas" valor={String(p.salidas.length)} sub="in-house con OUT hoy (11:00)" />
         <Kpi label="In-house" valor={String(p.inHouse.length)} />
         <Kpi label="Pendientes" valor={String(pendientes.length)} sub={`${p.llegadasPendientes.length} llegadas · ${p.salidasVencidas.length} salidas vencidas`} />
         <div className="kpi">
           <div className="kpi-label">Pernoctan esta noche</div>
-          {hotelesActivos.map((h) => (
-            <div key={h.id} className="kpi-linea"><span>{h.nombre.replace(/^Hotel /, '')}</span><b>{p.ocupacion.get(h.id) ?? 0}</b></div>
-          ))}
+          {hotelesActivos.map((h) => {
+            const o = occ.get(h.id);
+            const total = p.ocupacion.get(h.id) ?? 0;
+            return (
+              <div key={h.id} className="kpi-linea" title={o?.camas ? `${o.habitacionesOcupadas}/${o.habitaciones} habitaciones · ${o.camasOcupadas}/${o.camas} camas${o.sinAsignar ? ` · ${o.sinAsignar} sin asignar` : ''}` : 'Sin inventario cargado'}>
+                <span>{h.nombre.replace(/^Hotel /, '')}</span>
+                <b>
+                  {o?.camas ? `${total}/${o.camas}` : total}
+                  {o?.camas ? <small className="pct"> {Math.round((100 * total) / o.camas)}%</small> : null}
+                  {o?.sinAsignar ? <small className="warn-txt"> · {o.sinAsignar} s/hab</small> : null}
+                </b>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -92,7 +106,7 @@ export function PanelDiaPage() {
                     <td><b>{r.huesped.nombre}</b></td>
                     <td className="mono">{formatearRut(r.huesped.rut)}</td>
                     <td>{s.nombreEmpresa(r.empresaId)}</td>
-                    <td>{s.nombreHotel(t.hotelId).replace(/^Hotel /, '')}{t.habitacion && <span className="tag">hab. {t.habitacion}</span>}</td>
+                    <td>{s.nombreHotel(t.hotelId).replace(/^Hotel /, '')}{t.habitacionId ? <span className="tag">hab. {s.nombreHabitacion(t.habitacionId)}</span> : s.tieneInventario(t.hotelId) && r.estado !== 'CHECK_OUT' ? <span className="tag rojo">sin hab.</span> : null}</td>
                     <td>{formatoFecha(ingreso(r))}</td>
                     <td>{formatoFecha(salida(r))}</td>
                     <td>

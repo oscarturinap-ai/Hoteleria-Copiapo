@@ -13,7 +13,7 @@ const SECCIONES = {
   calendario: { titulo: 'Calendario', comp: CalendarioPage },
   registros: { titulo: 'Registros', comp: RegistrosPage },
   edp: { titulo: 'Estados de pago', comp: EDPPage },
-  tarifas: { titulo: 'Hoteles y tarifas', comp: HotelesTarifasPage },
+  tarifas: { titulo: 'Hoteles, habitaciones y tarifas', comp: HotelesTarifasPage },
   maestros: { titulo: 'Maestros', comp: MaestrosPage },
   respaldo: { titulo: 'Respaldo', comp: RespaldoPage },
 } as const;

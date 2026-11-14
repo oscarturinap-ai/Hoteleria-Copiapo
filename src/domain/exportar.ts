@@ -6,6 +6,7 @@ export interface Nombres {
   hotel: (id: Id) => string;
   empresa: (id: Id) => string;
   solicitante: (id: Id) => string;
+  habitacion?: (id: Id) => string;
 }
 
 export function etiquetaEstado(l: Pick<LineaEDP, 'estado' | 'noShow'>): string {

@@ -22,6 +22,30 @@ export interface Hotel {
   activo: boolean;
 }
 
+export type TipoHabitacion = 'SINGLE' | 'DOBLE' | 'TWIN' | 'TRIPLE' | 'SUITE';
+
+export const ETIQUETA_TIPO_HAB: Record<TipoHabitacion, string> = {
+  SINGLE: 'Single',
+  DOBLE: 'Doble (matrimonial)',
+  TWIN: 'Twin (2 camas)',
+  TRIPLE: 'Triple',
+  SUITE: 'Suite',
+};
+
+/** Capacidad sugerida en camas/personas por tipo (editable por habitación). */
+export const CAPACIDAD_TIPO: Record<TipoHabitacion, number> = { SINGLE: 1, DOBLE: 1, TWIN: 2, TRIPLE: 3, SUITE: 1 };
+
+export interface Habitacion {
+  id: Id;
+  hotelId: Id;
+  numero: string;
+  tipo: TipoHabitacion;
+  /** Personas del contrato que puede alojar simultáneamente (habitación compartida si > 1). */
+  capacidad: number;
+  activa: boolean;
+  notas: string;
+}
+
 /** Conceptos facturables. ALOJAMIENTO incluye desayuno; el resto es adicional. */
 export type Concepto =
   | 'ALOJAMIENTO'
@@ -113,8 +137,8 @@ export interface Tramo {
   hasta: ISODate;
   /** Snapshot de la tarifa al momento de asignar; no cambia si el tarifario se actualiza. */
   tarifaNoche: CLP;
-  /** N° de habitación asignada (opcional, informativo). */
-  habitacion: string;
+  /** Habitación asignada (null = sin asignar; se exige al check-in si el hotel tiene inventario). */
+  habitacionId: Id | null;
   motivo: string;
 }
 

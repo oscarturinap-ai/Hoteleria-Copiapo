@@ -18,7 +18,7 @@ import {
   tarifaVigente,
   validarRegistro,
 } from '../../domain';
-import { ETIQUETA_ACCION, perfilHuesped, validarRut } from '../../domain';
+import { ETIQUETA_ACCION, ETIQUETA_TIPO_HAB, disponibilidad, perfilHuesped, validarRut } from '../../domain';
 import type { CargoAdicional, Concepto, EstadoRegistro, ModalidadNoShow, Registro, Tramo } from '../../domain';
 import { Campo, InputCLP, Mensajes, Modal } from '../components/ui';
 import { nuevoId, useStore } from '../store';
@@ -26,6 +26,7 @@ import { nuevoId, useStore } from '../store';
 export interface Prellenado {
   hotelId?: string;
   fecha?: string;
+  habitacionId?: string;
 }
 
 const ESTADOS: EstadoRegistro[] = ['RESERVADO', 'IN_HOUSE', 'CHECK_OUT', 'NO_SHOW', 'ANULADO'];
@@ -39,7 +40,7 @@ function registroVacio(hotelId: string, tarifa: number, fecha?: string): Registr
     empresaId: '',
     solicitanteId: '',
     fechaSolicitud: hoyISO() < hoy ? hoyISO() : hoy,
-    tramos: [{ id: nuevoId(), hotelId, desde: hoy, hasta: sumarDias(hoy, 1), tarifaNoche: tarifa, habitacion: '', motivo: '' }],
+    tramos: [{ id: nuevoId(), hotelId, desde: hoy, hasta: sumarDias(hoy, 1), tarifaNoche: tarifa, habitacionId: null, motivo: '' }],
     adicionales: [],
     estado: 'RESERVADO',
     noShow: null,
@@ -59,6 +60,7 @@ export function RegistroForm({ inicial, prellenado, onClose }: { inicial: Regist
     const base = registroVacio(prellenado?.hotelId ?? madre?.id ?? '', 0, prellenado?.fecha);
     const t = base.tramos[0]!;
     t.tarifaNoche = tarifaVigente(s.tarifas, t.hotelId, 'ALOJAMIENTO', t.desde)?.monto ?? 0;
+    t.habitacionId = prellenado?.habitacionId ?? null;
     return base;
   };
   const [r, setR] = useState<Registro>(() => (inicial ? structuredClone(inicial) : nuevo()));
@@ -91,8 +93,10 @@ export function RegistroForm({ inicial, prellenado, onClose }: { inicial: Regist
         empresaIds: new Set(s.empresas.map((e) => e.id)),
         solicitanteIds: new Set(s.solicitantes.map((x) => x.id)),
         otrosRegistros: s.registros,
+        habitaciones: s.habitaciones,
+        anterior: inicial,
       }),
-    [r, s.hoteles, s.empresas, s.solicitantes, s.registros],
+    [r, s.hoteles, s.empresas, s.solicitantes, s.registros, s.habitaciones, inicial],
   );
   const resumen = useMemo(() => {
     try {
@@ -108,6 +112,8 @@ export function RegistroForm({ inicial, prellenado, onClose }: { inicial: Regist
       const tramos = prev.tramos.map((t) => ({ ...t }));
       const t = tramos[i]!;
       Object.assign(t, patch);
+      // Una habitación pertenece a un hotel: al cambiar de hotel se libera la asignación.
+      if ('hotelId' in patch) t.habitacionId = null;
       // Al cambiar hotel o fecha de inicio, re-propone la tarifa vigente.
       if ('hotelId' in patch || 'desde' in patch) {
         const p = precio(t.hotelId, 'ALOJAMIENTO', t.desde);
@@ -130,7 +136,7 @@ export function RegistroForm({ inicial, prellenado, onClose }: { inicial: Regist
         desde,
         hasta: esFechaValida(desde) ? sumarDias(desde, 1) : desde,
         tarifaNoche: precio(otro.id, 'ALOJAMIENTO', desde) ?? 0,
-        habitacion: '',
+        habitacionId: null,
         motivo: 'Derivación',
       };
       return { ...prev, tramos: [...prev.tramos, t] };
@@ -321,7 +327,7 @@ export function RegistroForm({ inicial, prellenado, onClose }: { inicial: Regist
                     {sugerida === null ? <div className="hint warn">Sin tarifa vigente</div> : sugerida !== t.tarifaNoche ? <div className="hint">Tarifario: {formatoCLP(sugerida)}</div> : null}
                   </td>
                   <td className="num">{n > 0 && Number.isSafeInteger(t.tarifaNoche) ? formatoCLP(multiplicar(t.tarifaNoche, n)) : '—'}</td>
-                  <td><input value={t.habitacion} onChange={(e) => setTramo(i, { habitacion: e.target.value })} style={{ width: 64 }} placeholder="—" /></td>
+                  <td><SelectorHabitacion tramo={t} registroId={r.id} onChange={(habitacionId) => setTramo(i, { habitacionId })} /></td>
                   <td><input value={t.motivo} onChange={(e) => setTramo(i, { motivo: e.target.value })} placeholder={i === 0 ? 'Asignación inicial' : 'Motivo'} /></td>
                   <td>{r.tramos.length > 1 && <button className="btn-icono" onClick={() => quitarTramo(i)} aria-label="Quitar tramo">×</button>}</td>
                 </tr>
@@ -423,5 +429,32 @@ export function RegistroForm({ inicial, prellenado, onClose }: { inicial: Regist
         </div>
       </footer>
     </Modal>
+  );
+}
+
+/** Selector con disponibilidad en vivo para las noches del tramo (excluye el propio registro). */
+function SelectorHabitacion({ tramo, registroId, onChange }: { tramo: Tramo; registroId: string; onChange: (id: string | null) => void }) {
+  const s = useStore();
+  const fechasOk = esFechaValida(tramo.desde) && esFechaValida(tramo.hasta) && tramo.hasta > tramo.desde;
+  const disp = useMemo(
+    () => (fechasOk ? disponibilidad(s.registros, s.habitaciones, tramo.hotelId, tramo.desde, tramo.hasta, registroId) : []),
+    [fechasOk, s.registros, s.habitaciones, tramo.hotelId, tramo.desde, tramo.hasta, registroId],
+  );
+  const actual = tramo.habitacionId ? s.habitaciones.find((h) => h.id === tramo.habitacionId) : undefined;
+  if (disp.length === 0 && !actual) return <span className="hint" title="Este hotel no tiene inventario de habitaciones cargado">Sin inventario</span>;
+  const libres = disp.filter((d) => d.libres > 0).length;
+  return (
+    <div>
+      <select value={tramo.habitacionId ?? ''} onChange={(e) => onChange(e.target.value || null)} style={{ minWidth: 150 }}>
+        <option value="">— Sin asignar —</option>
+        {actual && !disp.some((d) => d.habitacion.id === actual.id) && <option value={actual.id}>{actual.numero} (inactiva)</option>}
+        {disp.map((d) => (
+          <option key={d.habitacion.id} value={d.habitacion.id} disabled={d.libres === 0 && d.habitacion.id !== tramo.habitacionId}>
+            {d.habitacion.numero} · {ETIQUETA_TIPO_HAB[d.habitacion.tipo].split(' ')[0]} · {d.libres === 0 ? `ocupada (folio ${d.folios.join(', ')})` : `${d.libres}/${d.habitacion.capacidad} libre`}
+          </option>
+        ))}
+      </select>
+      {fechasOk && <div className="hint">{libres} de {disp.length} disponibles</div>}
+    </div>
   );
 }

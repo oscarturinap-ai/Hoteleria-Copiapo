@@ -2,7 +2,7 @@ import type { Id } from '../domain/types';
 import { semilla } from './semilla';
 import type { Collection, Repository, Snapshot } from './repository';
 
-export const VERSION_ESQUEMA = 2;
+export const VERSION_ESQUEMA = 3;
 const CLAVE = 'hoteleria-copiapo:db';
 
 type Tablas = Exclude<keyof Snapshot, 'version' | 'contadores'>;
@@ -15,12 +15,39 @@ const MIGRACIONES: Record<number, (s: Snapshot) => Snapshot> = {
     version: 2,
     registros: s.registros.map((r) => ({
       ...r,
-      tramos: r.tramos.map((t) => ({ ...t, habitacion: t.habitacion ?? '' })),
+      tramos: r.tramos.map((t) => ({ ...t, habitacion: (t as { habitacion?: string }).habitacion ?? '' })),
       historial: r.historial ?? [
         { en: r.creadoEn || new Date().toISOString(), usuario: '(migración)', accion: 'CREADO' as const, detalle: 'Registro anterior a la bitácora operativa' },
       ],
     })),
   }),
+  // v2 → v3: inventario de habitaciones. El N° en texto libre de cada tramo se convierte en una
+  // habitación del inventario de su hotel (capacidad 1, revisable) y el tramo pasa a referenciarla.
+  2: (s) => {
+    type TramoV2 = Snapshot['registros'][number]['tramos'][number] & { habitacion?: string };
+    const habitaciones: Snapshot['habitaciones'] = [...(s.habitaciones ?? [])];
+    const clave = (hotelId: string, numero: string) => `${hotelId}::${numero.trim().toLowerCase()}`;
+    const porClave = new Map(habitaciones.map((h) => [clave(h.hotelId, h.numero), h.id]));
+    const registros = s.registros.map((r) => ({
+      ...r,
+      tramos: r.tramos.map((t: TramoV2) => {
+        const { habitacion, ...resto } = t;
+        const numero = (habitacion ?? '').trim();
+        let habitacionId: string | null = resto.habitacionId ?? null;
+        if (!habitacionId && numero) {
+          const k = clave(t.hotelId, numero);
+          habitacionId = porClave.get(k) ?? null;
+          if (!habitacionId) {
+            habitacionId = crypto.randomUUID();
+            habitaciones.push({ id: habitacionId, hotelId: t.hotelId, numero, tipo: 'SINGLE', capacidad: 1, activa: true, notas: 'Creada por migración desde N° ingresado manualmente' });
+            porClave.set(k, habitacionId);
+          }
+        }
+        return { ...resto, habitacionId };
+      }),
+    }));
+    return { ...s, version: 3, habitaciones, registros };
+  },
 };
 
 function migrar(s: Snapshot): Snapshot {
@@ -36,6 +63,7 @@ function migrar(s: Snapshot): Snapshot {
 export function validarSnapshot(x: unknown): asserts x is Snapshot {
   const s = x as Snapshot;
   const tablas: Tablas[] = ['hoteles', 'tarifas', 'empresas', 'solicitantes', 'registros', 'estadosPago'];
+  if (s && typeof s.version === 'number' && s.version >= 3) tablas.push('habitaciones');
   if (!s || typeof s !== 'object' || typeof s.version !== 'number') throw new Error('Respaldo inválido: falta versión.');
   for (const t of tablas) if (!Array.isArray(s[t])) throw new Error(`Respaldo inválido: falta tabla "${t}".`);
   if (!s.contadores || typeof s.contadores.folioRegistro !== 'number') throw new Error('Respaldo inválido: faltan contadores.');
@@ -82,6 +110,7 @@ export class LocalStorageRepository implements Repository {
   }
 
   hoteles = this.coleccion('hoteles');
+  habitaciones = this.coleccion('habitaciones');
   tarifas = this.coleccion('tarifas');
   empresas = this.coleccion('empresas');
   solicitantes = this.coleccion('solicitantes');

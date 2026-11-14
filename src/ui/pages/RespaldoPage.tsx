@@ -53,6 +53,7 @@ export function RespaldoPage() {
             <tr><td>EDP emitidos</td><td className="num">{s.estadosPago.length}</td></tr>
             <tr><td>Empresas</td><td className="num">{s.empresas.length}</td></tr>
             <tr><td>Solicitantes</td><td className="num">{s.solicitantes.length}</td></tr>
+            <tr><td>Habitaciones</td><td className="num">{s.habitaciones.length}</td></tr>
             <tr><td>Tarifas</td><td className="num">{s.tarifas.length}</td></tr>
           </tbody>
         </table>

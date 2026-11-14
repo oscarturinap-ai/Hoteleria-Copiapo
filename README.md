@@ -28,6 +28,14 @@ Toda la información se ingresa directamente en la plataforma; no hay carga masi
 - **Operador** obligatorio (barra superior): cada operación queda en la bitácora con operador, fecha y detalle de cambios.
 - **Concurrencia optimista**: si el registro cambió desde que se abrió, el guardado se rechaza en vez de sobrescribir.
 
+### Habitaciones
+- **Inventario por hotel** (Hoteles, habitaciones y tarifas): número, tipo y **capacidad en personas** (twin compartida = 2). Alta individual o por rango (`101-120`).
+- **Asignación por tramo** con disponibilidad en vivo; las ocupadas aparecen deshabilitadas con el folio que las ocupa.
+- **Sin sobreventa**: ocupantes por noche ≤ capacidad. Quien sale el 12 (11:00) libera la habitación para quien entra el 12. No show y anulados liberan inventario.
+- **Check-in exige habitación** si el hotel tiene inventario; un hotel sin inventario opera por cupo, sin asignación.
+- **Calendario por habitación**: estado diario (libre / parcial / llena); clic en una celda libre crea el registro con la habitación asignada.
+- No se puede bajar la capacidad por debajo de la ocupación registrada ni eliminar habitaciones con historia (se desactivan).
+
 ## Reglas de negocio (fijadas por tests en `src/domain/dominio.test.ts`)
 
 | Regla | Implementación |
@@ -62,6 +70,7 @@ src/
     rut.ts           RUT chileno
     dinero.ts        Aritmética CLP entera
     registro.ts      Noches cobrables, tarifas vigentes, validación
+    habitaciones.ts  Inventario, disponibilidad, sobreventa, ocupación diaria
     operaciones.ts   Check-in/out, no show, anulación, cargos, panel del día, perfil de huésped, bitácora
     edp.ts           Cálculo y cuadratura de estados de pago
     exportar.ts      CSV (';' + BOM, compatible Excel es-CL)
@@ -70,11 +79,12 @@ src/
     localStorageRepo.ts  Implementación actual, versionada con migraciones
   ui/              React: páginas Registros, EDP, Hoteles y tarifas, Maestros, Respaldo
 supabase/migrations/0001_esquema_inicial.sql     Esquema relacional de destino
-supabase/migrations/0002_operacion_recepcion.sql Habitación + bitácora append-only
+supabase/migrations/0002_operacion_recepcion.sql Bitácora append-only
+supabase/migrations/0003_inventario_habitaciones.sql  Inventario + trigger anti-sobreventa
 ```
 
 ### Migración a Supabase / PostgreSQL
-1. Aplicar `supabase/migrations/0001_esquema_inicial.sql` y `0002_operacion_recepcion.sql` (tablas, secuencias de folio y correlativo,
+1. Aplicar en orden `supabase/migrations/0001` a `0003` (tablas, secuencias de folio y correlativo,
    restricciones de exclusión de rangos, auditoría por trigger, RLS por rol ADMIN / OPERADOR / LECTOR).
 2. Implementar `SupabaseRepository implements Repository` (mapear `Registro` ↔ `registro` + `tramo` + `cargo_adicional`).
 3. Cambiar la instancia en `src/main.tsx`. La UI y el dominio no cambian.

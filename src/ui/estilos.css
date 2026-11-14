@@ -182,3 +182,20 @@ tr.tenue td { color: #9ca3af; }
 .barra-est.corta-fin { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .leyenda { display: flex; gap: 4px; }
 .leyenda .barra-est { display: inline-block; }
+
+/* ───── Habitaciones ───── */
+.segmentado { display: inline-flex; border: 1px solid var(--borde); border-radius: 3px; overflow: hidden; }
+.segmentado button { font: inherit; border: 0; background: #fff; padding: 0 10px; height: 26px; cursor: pointer; color: var(--tenue); }
+.segmentado button + button { border-left: 1px solid var(--borde); }
+.segmentado button.activo { background: var(--primario); color: #fff; }
+.fila-hotel td.ocup.lleno { color: var(--err); }
+.fila-hab td { background: #f9fafb; border-top: 1px solid #e5e7eb; }
+.fila-hab.sin-asignar td { background: #fdf6f5; }
+.tabla.cal td.hab-dia { cursor: copy; font-size: 10px; color: var(--tenue); }
+.tabla.cal td.hab-dia.libre:hover { background: #dbe6f4; }
+.tabla.cal td.hab-dia.parcial { background: #e9f1fb; }
+.tabla.cal td.hab-dia.llena { background: #e5e7eb; cursor: not-allowed; }
+.tabla.cal .col-fija.sangria { padding-left: 18px; }
+.inv-form { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin: 6px 0 8px; }
+.kpi-linea .pct { color: var(--tenue); font-weight: 400; }
+.warn-txt { color: var(--warn); font-weight: 400; }

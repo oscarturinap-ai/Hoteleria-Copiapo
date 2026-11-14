@@ -1,4 +1,4 @@
-import type { Empresa, EstadoPago, Hotel, Id, Registro, Solicitante, Tarifa } from '../domain/types';
+import type { Empresa, EstadoPago, Habitacion, Hotel, Id, Registro, Solicitante, Tarifa } from '../domain/types';
 
 /**
  * Contrato de persistencia. Asíncrono a propósito: la implementación localStorage es síncrona
@@ -13,6 +13,7 @@ export interface Collection<T extends { id: Id }> {
 export interface Snapshot {
   version: number;
   hoteles: Hotel[];
+  habitaciones: Habitacion[];
   tarifas: Tarifa[];
   empresas: Empresa[];
   solicitantes: Solicitante[];
@@ -23,6 +24,7 @@ export interface Snapshot {
 
 export interface Repository {
   hoteles: Collection<Hotel>;
+  habitaciones: Collection<Habitacion>;
   tarifas: Collection<Tarifa>;
   empresas: Collection<Empresa>;
   solicitantes: Collection<Solicitante>;

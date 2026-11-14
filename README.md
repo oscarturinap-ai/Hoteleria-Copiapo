@@ -94,6 +94,8 @@ supabase/migrations/0004_api_aplicacion.sql      Perfiles, vista de dominio, gua
 | **Local** | Sin variables de Supabase | localStorage del navegador | Un equipo; operador escrito a mano |
 | **Supabase** | Con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` | PostgreSQL central | Login con email/contraseña; operador = usuario |
 
+> **Guía paso a paso (Supabase + Vercel): [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md).** Instalación SQL en un solo archivo: `supabase/setup_completo.sql`.
+
 ### Puesta en marcha en Supabase
 1. Crear un proyecto en Supabase.
 2. En **SQL Editor**, ejecutar en orden `supabase/migrations/0001` → `0004`. La `0004` fija los IDs de los hoteles: debe correr antes de cargar datos.

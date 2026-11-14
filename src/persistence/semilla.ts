@@ -6,7 +6,7 @@ import type { Snapshot } from './repository';
  */
 export function semilla(): Snapshot {
   return {
-    version: 1,
+    version: 2,
     hoteles: [
       { id: 'hotel-tabancura', nombre: 'Hotel Tabancura', tipo: 'MADRE', activo: true },
       { id: 'hotel-alto-atacama', nombre: 'Hotel Alto Atacama', tipo: 'CONVENIO', activo: true },

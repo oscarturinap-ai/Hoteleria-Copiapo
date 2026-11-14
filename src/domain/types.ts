@@ -113,6 +113,8 @@ export interface Tramo {
   hasta: ISODate;
   /** Snapshot de la tarifa al momento de asignar; no cambia si el tarifario se actualiza. */
   tarifaNoche: CLP;
+  /** N° de habitación asignada (opcional, informativo). */
+  habitacion: string;
   motivo: string;
 }
 
@@ -145,8 +147,29 @@ export interface Registro {
   estado: EstadoRegistro;
   noShow: NoShow | null;
   observaciones: string;
+  /** Bitácora operativa append-only (quién, cuándo, qué). */
+  historial: EventoRegistro[];
   creadoEn: string;
   actualizadoEn: string;
+}
+
+export type AccionRegistro = 'CREADO' | 'EDITADO' | 'CHECK_IN' | 'CHECK_OUT' | 'NO_SHOW' | 'ANULADO' | 'CARGO';
+
+export const ETIQUETA_ACCION: Record<AccionRegistro, string> = {
+  CREADO: 'Creado',
+  EDITADO: 'Editado',
+  CHECK_IN: 'Check-in',
+  CHECK_OUT: 'Check-out',
+  NO_SHOW: 'No show',
+  ANULADO: 'Anulado',
+  CARGO: 'Cargo',
+};
+
+export interface EventoRegistro {
+  en: string;
+  usuario: string;
+  accion: AccionRegistro;
+  detalle: string;
 }
 
 // ───────────────────────── Estados de pago ─────────────────────────

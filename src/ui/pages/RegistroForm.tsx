@@ -11,50 +11,73 @@ import {
   ingreso,
   multiplicar,
   nochesReservadas,
-  normalizarRut,
+  formatoFecha,
   resumenRegistro,
   salida,
   sumarDias,
   tarifaVigente,
   validarRegistro,
 } from '../../domain';
+import { ETIQUETA_ACCION, perfilHuesped, validarRut } from '../../domain';
 import type { CargoAdicional, Concepto, EstadoRegistro, ModalidadNoShow, Registro, Tramo } from '../../domain';
 import { Campo, InputCLP, Mensajes, Modal } from '../components/ui';
-import { ahora, nuevoId, useStore } from '../store';
+import { nuevoId, useStore } from '../store';
+
+export interface Prellenado {
+  hotelId?: string;
+  fecha?: string;
+}
 
 const ESTADOS: EstadoRegistro[] = ['RESERVADO', 'IN_HOUSE', 'CHECK_OUT', 'NO_SHOW', 'ANULADO'];
 
-function registroVacio(hotelId: string, tarifa: number): Registro {
-  const hoy = hoyISO();
+function registroVacio(hotelId: string, tarifa: number, fecha?: string): Registro {
+  const hoy = fecha && esFechaValida(fecha) ? fecha : hoyISO();
   return {
     id: nuevoId(),
     folio: 0,
     huesped: { rut: '', nombre: '' },
     empresaId: '',
     solicitanteId: '',
-    fechaSolicitud: hoy,
-    tramos: [{ id: nuevoId(), hotelId, desde: hoy, hasta: sumarDias(hoy, 1), tarifaNoche: tarifa, motivo: '' }],
+    fechaSolicitud: hoyISO() < hoy ? hoyISO() : hoy,
+    tramos: [{ id: nuevoId(), hotelId, desde: hoy, hasta: sumarDias(hoy, 1), tarifaNoche: tarifa, habitacion: '', motivo: '' }],
     adicionales: [],
     estado: 'RESERVADO',
     noShow: null,
     observaciones: '',
+    historial: [],
     creadoEn: '',
     actualizadoEn: '',
   };
 }
 
-export function RegistroForm({ inicial, onClose }: { inicial: Registro | null; onClose: () => void }) {
+export function RegistroForm({ inicial, prellenado, onClose }: { inicial: Registro | null; prellenado?: Prellenado; onClose: () => void }) {
   const s = useStore();
   const hotelesActivos = s.hoteles.filter((h) => h.activo);
   const madre = hotelesActivos.find((h) => h.tipo === 'MADRE') ?? hotelesActivos[0];
 
-  const [r, setR] = useState<Registro>(() => {
-    if (inicial) return structuredClone(inicial);
-    const base = registroVacio(madre?.id ?? '', 0);
+  const nuevo = () => {
+    const base = registroVacio(prellenado?.hotelId ?? madre?.id ?? '', 0, prellenado?.fecha);
     const t = base.tramos[0]!;
     t.tarifaNoche = tarifaVigente(s.tarifas, t.hotelId, 'ALOJAMIENTO', t.desde)?.monto ?? 0;
     return base;
-  });
+  };
+  const [r, setR] = useState<Registro>(() => (inicial ? structuredClone(inicial) : nuevo()));
+  const [guardadoMsg, setGuardadoMsg] = useState('');
+  const perfil = useMemo(
+    () => (validarRut(r.huesped.rut) ? perfilHuesped(s.registros, r.huesped.rut, r.id) : null),
+    [r.huesped.rut, r.id, s.registros],
+  );
+
+  /** Al reconocer un RUT con estadías previas, completa los datos vacíos (perfil de huésped). */
+  const aplicarPerfil = () => {
+    if (!perfil || inicial) return;
+    setR((prev) => ({
+      ...prev,
+      huesped: { rut: formatearRut(prev.huesped.rut), nombre: prev.huesped.nombre.trim() ? prev.huesped.nombre : perfil.nombre },
+      empresaId: prev.empresaId || (s.empresas.some((e) => e.id === perfil.ultimaEmpresaId && e.activo) ? perfil.ultimaEmpresaId : ''),
+      solicitanteId: prev.solicitanteId || (s.solicitantes.some((x) => x.id === perfil.ultimoSolicitanteId && x.activo) ? perfil.ultimoSolicitanteId : ''),
+    }));
+  };
   const [guardando, setGuardando] = useState(false);
   const [errorGuardar, setErrorGuardar] = useState('');
 
@@ -107,6 +130,7 @@ export function RegistroForm({ inicial, onClose }: { inicial: Registro | null; o
         desde,
         hasta: esFechaValida(desde) ? sumarDias(desde, 1) : desde,
         tarifaNoche: precio(otro.id, 'ALOJAMIENTO', desde) ?? 0,
+        habitacion: '',
         motivo: 'Derivación',
       };
       return { ...prev, tramos: [...prev.tramos, t] };
@@ -151,23 +175,17 @@ export function RegistroForm({ inicial, onClose }: { inicial: Registro | null; o
     });
 
   // ───── Guardar ─────
-  const guardar = async () => {
+  const guardar = async (yNuevo = false) => {
     if (validacion.errores.length) return;
     setGuardando(true);
     setErrorGuardar('');
     try {
-      const ts = ahora();
-      const folio = r.folio || (await s.repo.siguiente('folioRegistro'));
-      await s.repo.registros.upsert({
-        ...r,
-        folio,
-        huesped: { rut: normalizarRut(r.huesped.rut), nombre: r.huesped.nombre.trim().replace(/\s+/g, ' ') },
-        noShow: r.estado === 'NO_SHOW' ? r.noShow : null,
-        creadoEn: r.creadoEn || ts,
-        actualizadoEn: ts,
-      });
-      await s.recargar();
-      onClose();
+      const g = await s.guardarRegistro(inicial, r);
+      if (!g.ok) return setErrorGuardar(g.errores.join(' '));
+      if (yNuevo) {
+        setGuardadoMsg(`Folio ${g.registro.folio} guardado: ${g.registro.huesped.nombre}.`);
+        setR(nuevo());
+      } else onClose();
     } catch (e) {
       setErrorGuardar(e instanceof Error ? e.message : String(e));
     } finally {
@@ -190,7 +208,10 @@ export function RegistroForm({ inicial, onClose }: { inicial: Registro | null; o
             <input
               value={r.huesped.rut}
               onChange={(e) => setR({ ...r, huesped: { ...r.huesped, rut: e.target.value } })}
-              onBlur={() => setR({ ...r, huesped: { ...r.huesped, rut: formatearRut(r.huesped.rut) } })}
+              onBlur={() => {
+                setR({ ...r, huesped: { ...r.huesped, rut: formatearRut(r.huesped.rut) } });
+                aplicarPerfil();
+              }}
               placeholder="12.345.678-9"
               autoFocus
             />
@@ -218,8 +239,16 @@ export function RegistroForm({ inicial, onClose }: { inicial: Registro | null; o
             <input type="date" value={r.fechaSolicitud} onChange={(e) => setR({ ...r, fechaSolicitud: e.target.value })} />
           </Campo>
         </div>
+        {perfil && (
+          <div className="msg info">
+            Huésped conocido: {perfil.estadias} estadía(s) previa(s), última salida {formatoFecha(perfil.ultimaSalida)} · {s.nombreEmpresa(perfil.ultimaEmpresaId)}
+            {perfil.nombre.trim().toLowerCase() !== r.huesped.nombre.trim().toLowerCase() && r.huesped.nombre.trim() && (
+              <b> · Nombre registrado previamente: "{perfil.nombre}"</b>
+            )}
+          </div>
+        )}
         <div className="fila">
-          <Campo label="Estado" ancho={140}>
+          <Campo label={inicial ? 'Estado (corrección manual)' : 'Estado'} ancho={170}>
             <select
               value={r.estado}
               onChange={(e) => {
@@ -270,7 +299,7 @@ export function RegistroForm({ inicial, onClose }: { inicial: Registro | null; o
         </div>
         <table className="tabla compacta">
           <thead>
-            <tr><th>#</th><th>Hotel</th><th>Ingreso</th><th>Salida</th><th className="num">Noches</th><th className="num">Tarifa/noche</th><th className="num">Subtotal</th><th>Motivo</th><th /></tr>
+            <tr><th>#</th><th>Hotel</th><th>Ingreso</th><th>Salida</th><th className="num">Noches</th><th className="num">Tarifa/noche</th><th className="num">Subtotal</th><th>Hab.</th><th>Motivo</th><th /></tr>
           </thead>
           <tbody>
             {r.tramos.map((t, i) => {
@@ -292,6 +321,7 @@ export function RegistroForm({ inicial, onClose }: { inicial: Registro | null; o
                     {sugerida === null ? <div className="hint warn">Sin tarifa vigente</div> : sugerida !== t.tarifaNoche ? <div className="hint">Tarifario: {formatoCLP(sugerida)}</div> : null}
                   </td>
                   <td className="num">{n > 0 && Number.isSafeInteger(t.tarifaNoche) ? formatoCLP(multiplicar(t.tarifaNoche, n)) : '—'}</td>
+                  <td><input value={t.habitacion} onChange={(e) => setTramo(i, { habitacion: e.target.value })} style={{ width: 64 }} placeholder="—" /></td>
                   <td><input value={t.motivo} onChange={(e) => setTramo(i, { motivo: e.target.value })} placeholder={i === 0 ? 'Asignación inicial' : 'Motivo'} /></td>
                   <td>{r.tramos.length > 1 && <button className="btn-icono" onClick={() => quitarTramo(i)} aria-label="Quitar tramo">×</button>}</td>
                 </tr>
@@ -345,8 +375,29 @@ export function RegistroForm({ inicial, onClose }: { inicial: Registro | null; o
         </Campo>
       </section>
 
+      {inicial && r.historial.length > 0 && (
+        <section className="bloque">
+          <h3>Bitácora</h3>
+          <table className="tabla compacta">
+            <thead><tr><th>Fecha / hora</th><th>Operador</th><th>Acción</th><th>Detalle</th></tr></thead>
+            <tbody>
+              {[...r.historial].reverse().map((ev, i) => (
+                <tr key={i}>
+                  <td>{new Date(ev.en).toLocaleString('es-CL')}</td>
+                  <td>{ev.usuario}</td>
+                  <td>{ETIQUETA_ACCION[ev.accion]}</td>
+                  <td className="ajustar">{ev.detalle}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
       <Mensajes errores={validacion.errores} advertencias={validacion.advertencias} />
       {errorGuardar && <div className="msg err">✕ {errorGuardar}</div>}
+      {guardadoMsg && <div className="msg ok">✓ {guardadoMsg}</div>}
+      {!s.operador.trim() && <div className="msg warn">! Indique el operador responsable en la barra superior para poder guardar.</div>}
 
       <footer className="modal-pie">
         <div className="resumen">
@@ -361,7 +412,12 @@ export function RegistroForm({ inicial, onClose }: { inicial: Registro | null; o
         </div>
         <div className="acciones">
           <button className="btn" onClick={onClose}>Cancelar</button>
-          <button className="btn primario" onClick={guardar} disabled={guardando || validacion.errores.length > 0}>
+          {!inicial && (
+            <button className="btn" onClick={() => guardar(true)} disabled={guardando || validacion.errores.length > 0 || !s.operador.trim()}>
+              Guardar y nuevo
+            </button>
+          )}
+          <button className="btn primario" onClick={() => guardar()} disabled={guardando || validacion.errores.length > 0 || !s.operador.trim()}>
             {guardando ? 'Guardando…' : 'Guardar'}
           </button>
         </div>

@@ -2,13 +2,26 @@ import type { Id } from '../domain/types';
 import { semilla } from './semilla';
 import type { Collection, Repository, Snapshot } from './repository';
 
-export const VERSION_ESQUEMA = 1;
+export const VERSION_ESQUEMA = 2;
 const CLAVE = 'hoteleria-copiapo:db';
 
 type Tablas = Exclude<keyof Snapshot, 'version' | 'contadores'>;
 
-/** Migraciones de esquema local: índice = versión de origen. */
-const MIGRACIONES: Record<number, (s: Snapshot) => Snapshot> = {};
+/** Migraciones de esquema local: índice = versión de origen. Nunca editar una ya publicada. */
+const MIGRACIONES: Record<number, (s: Snapshot) => Snapshot> = {
+  // v1 → v2: N° de habitación en tramos + historial operativo por registro.
+  1: (s) => ({
+    ...s,
+    version: 2,
+    registros: s.registros.map((r) => ({
+      ...r,
+      tramos: r.tramos.map((t) => ({ ...t, habitacion: t.habitacion ?? '' })),
+      historial: r.historial ?? [
+        { en: r.creadoEn || new Date().toISOString(), usuario: '(migración)', accion: 'CREADO' as const, detalle: 'Registro anterior a la bitácora operativa' },
+      ],
+    })),
+  }),
+};
 
 function migrar(s: Snapshot): Snapshot {
   let actual = s;

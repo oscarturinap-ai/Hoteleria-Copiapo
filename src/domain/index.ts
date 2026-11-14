@@ -5,3 +5,4 @@ export * from './dinero';
 export * from './registro';
 export * from './edp';
 export * from './exportar';
+export * from './operaciones';

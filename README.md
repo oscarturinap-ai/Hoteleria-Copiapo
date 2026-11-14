@@ -11,6 +11,23 @@ npm test           # reglas de negocio (vitest)
 npm run build      # typecheck + build de producción
 ```
 
+## Operación (flujo de recepción, modelo PMS)
+
+Toda la información se ingresa directamente en la plataforma; no hay carga masiva.
+
+| Vista | Uso |
+|---|---|
+| **Panel del día** (inicio) | Llegadas, salidas (11:00), in-house y pendientes (llegadas atrasadas, salidas vencidas), con ocupación por hotel. Acciones directas: check-in, check-out, no show, cargo, anular. |
+| **Calendario** | Línea de tiempo por hotel con barras por estadía y color por estado. Clic en la ocupación de un día crea un registro con ese hotel, fecha y tarifa vigente. |
+| **Registros** | Listado con filtros y las mismas acciones por fila. |
+| **Formulario** | Reconoce al huésped por RUT (estadías previas) y completa nombre, empresa y solicitante. N° de habitación por tramo. "Guardar y nuevo" para ingreso continuo. Bitácora visible. |
+
+- **Check-in tardío**: ajusta el IN (libera noches) o mantiene el cobro desde la reserva.
+- **Check-out anticipado / extensión**: ajusta el OUT o lo mantiene; bloquea si quedan cargos fuera de la nueva estadía.
+- Check-in/out no aceptan fechas futuras (registran hechos ocurridos).
+- **Operador** obligatorio (barra superior): cada operación queda en la bitácora con operador, fecha y detalle de cambios.
+- **Concurrencia optimista**: si el registro cambió desde que se abrió, el guardado se rechaza en vez de sobrescribir.
+
 ## Reglas de negocio (fijadas por tests en `src/domain/dominio.test.ts`)
 
 | Regla | Implementación |
@@ -45,17 +62,19 @@ src/
     rut.ts           RUT chileno
     dinero.ts        Aritmética CLP entera
     registro.ts      Noches cobrables, tarifas vigentes, validación
+    operaciones.ts   Check-in/out, no show, anulación, cargos, panel del día, perfil de huésped, bitácora
     edp.ts           Cálculo y cuadratura de estados de pago
     exportar.ts      CSV (';' + BOM, compatible Excel es-CL)
   persistence/
     repository.ts    Contrato async (Collection<T>, contadores, export/import)
     localStorageRepo.ts  Implementación actual, versionada con migraciones
   ui/              React: páginas Registros, EDP, Hoteles y tarifas, Maestros, Respaldo
-supabase/migrations/0001_esquema_inicial.sql   Esquema relacional de destino
+supabase/migrations/0001_esquema_inicial.sql     Esquema relacional de destino
+supabase/migrations/0002_operacion_recepcion.sql Habitación + bitácora append-only
 ```
 
 ### Migración a Supabase / PostgreSQL
-1. Aplicar `supabase/migrations/0001_esquema_inicial.sql` (tablas, secuencias de folio y correlativo,
+1. Aplicar `supabase/migrations/0001_esquema_inicial.sql` y `0002_operacion_recepcion.sql` (tablas, secuencias de folio y correlativo,
    restricciones de exclusión de rangos, auditoría por trigger, RLS por rol ADMIN / OPERADOR / LECTOR).
 2. Implementar `SupabaseRepository implements Repository` (mapear `Registro` ↔ `registro` + `tramo` + `cargo_adicional`).
 3. Cambiar la instancia en `src/main.tsx`. La UI y el dominio no cambian.

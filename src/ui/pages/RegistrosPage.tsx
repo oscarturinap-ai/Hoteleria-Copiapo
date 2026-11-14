@@ -12,6 +12,7 @@ import {
 } from '../../domain';
 import type { EstadoRegistro, Registro } from '../../domain';
 import { Vacio } from '../components/ui';
+import { AccionesRegistro } from '../components/AccionesRegistro';
 import { useStore } from '../store';
 import { RegistroForm } from './RegistroForm';
 
@@ -94,7 +95,7 @@ export function RegistrosPage() {
             <thead>
               <tr>
                 <th className="num">Folio</th><th>RUT</th><th>Nombre</th><th>Empresa</th><th>Solicitante</th><th>Hotel</th>
-                <th>IN</th><th>OUT</th><th className="num">Noches</th><th>Estado</th><th className="num">Adicionales</th><th className="num">Neto</th>
+                <th>IN</th><th>OUT</th><th className="num">Noches</th><th>Estado</th><th className="num">Adicionales</th><th className="num">Neto</th><th>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -115,6 +116,7 @@ export function RegistrosPage() {
                   <td><span className={`estado e-${r.estado}`}>{ETIQUETA_ESTADO[r.estado]}{r.noShow ? ` · ${r.noShow.modalidad.toLowerCase().replace('_', ' ')}` : ''}</span></td>
                   <td className="num">{res.adicionales ? formatoCLP(res.adicionales) : '—'}</td>
                   <td className="num"><b>{formatoCLP(res.total)}</b></td>
+                  <td><AccionesRegistro r={r} compacto /></td>
                 </tr>
               ))}
             </tbody>
@@ -125,6 +127,7 @@ export function RegistrosPage() {
                 <td />
                 <td className="num">{formatoCLP(tot.adic)}</td>
                 <td className="num">{formatoCLP(tot.total)}</td>
+                <td />
               </tr>
             </tfoot>
           </table>

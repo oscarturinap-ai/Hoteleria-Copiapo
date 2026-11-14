@@ -132,3 +132,53 @@ tr.tenue td { color: #9ca3af; }
   .tabla th { position: static; }
   .kpis { grid-template-columns: repeat(5, 1fr); }
 }
+
+/* ───── Operación (panel del día, calendario, acciones) ───── */
+.operador { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11px; color: #cfd8e3; }
+.operador input { height: 26px; width: 170px; border-color: transparent; }
+.operador.falta input { outline: 2px solid #f59e0b; }
+.btn.mini { height: 22px; padding: 0 7px; font-size: 11px; }
+.acciones-fila { display: inline-flex; gap: 4px; }
+.acciones.derecha { justify-content: flex-end; margin-top: 4px; }
+.titulo-fecha { margin-left: 8px; text-transform: capitalize; font-size: 14px; }
+.kpi-linea { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.pestañas { display: flex; gap: 2px; border-bottom: 1px solid var(--borde); margin: -4px 0 8px; }
+.pestañas button { font: inherit; background: none; border: 0; padding: 8px 14px; cursor: pointer; color: var(--tenue); border-bottom: 2px solid transparent; }
+.pestañas button.activo { color: var(--primario); border-bottom-color: var(--primario); font-weight: 600; }
+.pestañas button.alerta { color: var(--err); }
+.msg.info { background: #eef4fb; color: var(--primario); }
+.ficha { display: flex; flex-direction: column; gap: 2px; background: var(--panel); border: 1px solid var(--borde); border-radius: 4px; padding: 8px 10px; }
+.ficha span { color: var(--tenue); font-size: 12px; }
+.opciones { display: flex; flex-direction: column; gap: 6px; }
+.opciones label { display: flex; gap: 6px; align-items: center; }
+.opciones input[type=radio] { height: auto; }
+.dato-total { align-self: flex-end; font-weight: 600; font-size: 15px; padding-bottom: 4px; font-variant-numeric: tabular-nums; }
+.tabla td.ajustar { white-space: normal; }
+.check { display: flex; align-items: center; gap: 4px; }
+.check input { height: auto; }
+
+.calendario { max-height: calc(100vh - 170px); }
+.tabla.cal { table-layout: fixed; width: max-content; min-width: 100%; }
+.tabla.cal th.dia, .tabla.cal td { width: 44px; min-width: 44px; padding: 2px; text-align: center; }
+.tabla.cal th.dia { line-height: 1.1; text-transform: none; }
+.tabla.cal .num-dia { font-size: 13px; color: var(--texto); }
+.tabla.cal .mes { font-size: 10px; color: var(--primario); }
+.tabla.cal .col-fija { position: sticky; left: 0; z-index: 2; background: var(--panel); width: 230px; min-width: 230px; text-align: left; padding: 3px 8px; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid var(--borde); }
+.tabla.cal thead .col-fija { z-index: 3; background: #eef1f5; }
+.tabla.cal tbody tr:nth-child(even) { background: transparent; }
+.tabla.cal .finde { background: #f6f7f9; }
+.tabla.cal .hoy { background: #e9f1fb; box-shadow: inset 1px 0 0 #9db6d8, inset -1px 0 0 #9db6d8; }
+.fila-hotel td { background: #eef1f5 !important; border-top: 2px solid var(--borde); font-weight: 600; }
+.fila-hotel td.ocup { cursor: copy; color: var(--primario); }
+.fila-hotel td.ocup:hover { background: #dbe6f4 !important; }
+.folio { color: var(--tenue); font-size: 11px; font-variant-numeric: tabular-nums; }
+.celda-barra { padding: 3px 1px !important; }
+.barra-est { display: block; border-radius: 4px; padding: 3px 6px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; background: #e5e9f0; border-left: 3px solid #94a3b8; }
+.barra-est.e-RESERVADO { background: #eef2ff; border-left-color: #6366f1; color: #3730a3; }
+.barra-est.e-IN_HOUSE { background: #dbeafe; border-left-color: #1d4ed8; color: #1e3a8a; }
+.barra-est.e-CHECK_OUT { background: #dcfce7; border-left-color: #15803d; color: #14532d; }
+.barra-est.e-NO_SHOW { background: repeating-linear-gradient(45deg, #fef3c7, #fef3c7 6px, #fde68a 6px, #fde68a 12px); border-left-color: #b45309; color: #78350f; }
+.barra-est.corta-ini { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-style: dashed; }
+.barra-est.corta-fin { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.leyenda { display: flex; gap: 4px; }
+.leyenda .barra-est { display: inline-block; }

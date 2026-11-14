@@ -1,8 +1,8 @@
 import type { Id } from '../domain/types';
-import { semilla } from './semilla';
+import { HOTEL_ID, semilla } from './semilla';
 import type { Collection, Repository, Snapshot } from './repository';
 
-export const VERSION_ESQUEMA = 3;
+export const VERSION_ESQUEMA = 4;
 const CLAVE = 'hoteleria-copiapo:db';
 
 type Tablas = Exclude<keyof Snapshot, 'version' | 'contadores'>;
@@ -48,9 +48,22 @@ const MIGRACIONES: Record<number, (s: Snapshot) => Snapshot> = {
     }));
     return { ...s, version: 3, habitaciones, registros };
   },
+  // v3 → v4: IDs de hoteles semilla a UUID estables (compatibles con PostgreSQL/Supabase).
+  // Los IDs antiguos son únicos y distintivos: se reemplazan en todo el snapshot, incluidos
+  // los EDP emitidos (filtros, líneas, subtotales y etiquetas).
+  3: (s) => {
+    const mapa: Record<string, string> = {
+      'hotel-tabancura': HOTEL_ID.TABANCURA,
+      'hotel-alto-atacama': HOTEL_ID.ALTO_ATACAMA,
+      'hotel-muray': HOTEL_ID.MURAY,
+    };
+    let json = JSON.stringify({ ...s, version: 4 });
+    for (const [viejo, nuevo] of Object.entries(mapa)) json = json.split(`"${viejo}"`).join(`"${nuevo}"`);
+    return JSON.parse(json) as Snapshot;
+  },
 };
 
-function migrar(s: Snapshot): Snapshot {
+export function migrar(s: Snapshot): Snapshot {
   let actual = s;
   while (actual.version < VERSION_ESQUEMA) {
     const m = MIGRACIONES[actual.version];

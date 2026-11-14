@@ -51,6 +51,7 @@ export function MaestrosPage() {
 
   return (
     <div className="pagina">
+      {!s.esAdmin && <div className="solo-lectura">Solo lectura: la edición de esta sección requiere rol ADMIN.</div>}
       {error && <div className="msg err">✕ {error}</div>}
       <div className="grid-2">
         <div className="panel">

@@ -111,13 +111,13 @@ export function EDPPage() {
             <button className="btn" onClick={() => setViendo(null)}>← Volver a cálculo vigente</button>
             <button className="btn" onClick={() => exportar(viendo.resultado, `_N${viendo.correlativo}`)}>Exportar CSV</button>
             <button className="btn" onClick={() => window.print()}>Imprimir</button>
-            {viendo.estado === 'EMITIDO' && <button className="btn peligro" onClick={() => anular(viendo)}>Anular</button>}
+            {viendo.estado === 'EMITIDO' && s.puedeEscribir && <button className="btn peligro" onClick={() => anular(viendo)}>Anular</button>}
           </>
         ) : (
           <>
             <button className="btn" disabled={!res?.lineas.length} onClick={() => res && exportar(res, '_borrador')}>Exportar CSV</button>
             <button className="btn" disabled={!res?.lineas.length} onClick={() => window.print()}>Imprimir</button>
-            <button className="btn primario" disabled={!res?.lineas.length} onClick={emitir}>Emitir EDP</button>
+            <button className="btn primario" disabled={!res?.lineas.length || !s.puedeEscribir} onClick={emitir}>Emitir EDP</button>
           </>
         )}
       </div>

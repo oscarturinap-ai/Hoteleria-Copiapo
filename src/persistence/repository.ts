@@ -23,6 +23,8 @@ export interface Snapshot {
 }
 
 export interface Repository {
+  /** true si el backend detecta ediciones concurrentes por sí mismo (evita leer todo antes de guardar). */
+  readonly concurrenciaEnServidor?: boolean;
   hoteles: Collection<Hotel>;
   habitaciones: Collection<Habitacion>;
   tarifas: Collection<Tarifa>;

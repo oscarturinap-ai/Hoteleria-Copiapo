@@ -403,6 +403,7 @@ export function RegistroForm({ inicial, prellenado, onClose }: { inicial: Regist
       <Mensajes errores={validacion.errores} advertencias={validacion.advertencias} />
       {errorGuardar && <div className="msg err">✕ {errorGuardar}</div>}
       {guardadoMsg && <div className="msg ok">✓ {guardadoMsg}</div>}
+      {!s.puedeEscribir && <div className="solo-lectura">Solo lectura: su rol no permite modificar registros.</div>}
       {!s.operador.trim() && <div className="msg warn">! Indique el operador responsable en la barra superior para poder guardar.</div>}
 
       <footer className="modal-pie">
@@ -419,11 +420,11 @@ export function RegistroForm({ inicial, prellenado, onClose }: { inicial: Regist
         <div className="acciones">
           <button className="btn" onClick={onClose}>Cancelar</button>
           {!inicial && (
-            <button className="btn" onClick={() => guardar(true)} disabled={guardando || validacion.errores.length > 0 || !s.operador.trim()}>
+            <button className="btn" onClick={() => guardar(true)} disabled={guardando || validacion.errores.length > 0 || !s.operador.trim() || !s.puedeEscribir}>
               Guardar y nuevo
             </button>
           )}
-          <button className="btn primario" onClick={() => guardar()} disabled={guardando || validacion.errores.length > 0 || !s.operador.trim()}>
+          <button className="btn primario" onClick={() => guardar()} disabled={guardando || validacion.errores.length > 0 || !s.operador.trim() || !s.puedeEscribir}>
             {guardando ? 'Guardando…' : 'Guardar'}
           </button>
         </div>

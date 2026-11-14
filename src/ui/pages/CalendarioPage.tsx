@@ -134,7 +134,7 @@ export function CalendarioPage() {
     </tr>
   );
 
-  const nuevo = (pre: Prellenado) => setAbierto({ r: null, pre });
+  const nuevo = (pre: Prellenado) => s.puedeEscribir && setAbierto({ r: null, pre });
 
   return (
     <div className="pagina">

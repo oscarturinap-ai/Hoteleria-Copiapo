@@ -29,7 +29,9 @@ type Dialogo = 'checkin' | 'checkout' | 'noshow' | 'cargo' | 'anular';
 
 /** Botonera contextual según estado (flujo de recepción). */
 export function AccionesRegistro({ r, compacto = false }: { r: Registro; compacto?: boolean }) {
+  const { puedeEscribir } = useStore();
   const [d, setD] = useState<Dialogo | null>(null);
+  if (!puedeEscribir) return null;
   const b = (k: Dialogo, txt: string, cls = '') => (
     <button className={`btn ${compacto ? 'mini' : ''} ${cls}`} onClick={(e) => { e.stopPropagation(); setD(k); }}>{txt}</button>
   );

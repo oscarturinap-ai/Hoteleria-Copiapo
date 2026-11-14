@@ -80,7 +80,7 @@ export function RegistrosPage() {
         <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} title="Estadías desde" />
         <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} title="Estadías hasta" />
         <div className="espaciador" />
-        <button className="btn primario" onClick={() => setEditando('nuevo')}>+ Nuevo registro</button>
+        <button className="btn primario" disabled={!s.puedeEscribir} onClick={() => setEditando('nuevo')}>+ Nuevo registro</button>
       </div>
 
       {faltantes.length > 0 && (

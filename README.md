@@ -76,18 +76,45 @@ src/
     exportar.ts      CSV (';' + BOM, compatible Excel es-CL)
   persistence/
     repository.ts    Contrato async (Collection<T>, contadores, export/import)
-    localStorageRepo.ts  Implementación actual, versionada con migraciones
+    localStorageRepo.ts  Modo local, versionado con migraciones
+    supabaseRepo.ts  Modo Supabase (vista de dominio + RPC transaccional)
+    supabaseMapeo.ts Filas ↔ dominio y traducción de errores
+    config.ts        Selección de backend por variables de entorno
   ui/              React: páginas Registros, EDP, Hoteles y tarifas, Maestros, Respaldo
 supabase/migrations/0001_esquema_inicial.sql     Esquema relacional de destino
 supabase/migrations/0002_operacion_recepcion.sql Bitácora append-only
 supabase/migrations/0003_inventario_habitaciones.sql  Inventario + trigger anti-sobreventa
+supabase/migrations/0004_api_aplicacion.sql      Perfiles, vista de dominio, guardar_registro, correlativos
 ```
 
-### Migración a Supabase / PostgreSQL
-1. Aplicar en orden `supabase/migrations/0001` a `0003` (tablas, secuencias de folio y correlativo,
-   restricciones de exclusión de rangos, auditoría por trigger, RLS por rol ADMIN / OPERADOR / LECTOR).
-2. Implementar `SupabaseRepository implements Repository` (mapear `Registro` ↔ `registro` + `tramo` + `cargo_adicional`).
-3. Cambiar la instancia en `src/main.tsx`. La UI y el dominio no cambian.
-4. Importar los datos actuales desde el respaldo JSON (menú **Respaldo**).
+## Modos de operación
 
-> Mientras se use localStorage, los datos viven sólo en ese navegador: exportar respaldos periódicamente.
+| Modo | Cuándo | Datos | Usuarios |
+|---|---|---|---|
+| **Local** | Sin variables de Supabase | localStorage del navegador | Un equipo; operador escrito a mano |
+| **Supabase** | Con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` | PostgreSQL central | Login con email/contraseña; operador = usuario |
+
+### Puesta en marcha en Supabase
+1. Crear un proyecto en Supabase.
+2. En **SQL Editor**, ejecutar en orden `supabase/migrations/0001` → `0004`. La `0004` fija los IDs de los hoteles: debe correr antes de cargar datos.
+3. Copiar `.env.example` a `.env.local` con la URL y la *anon key* (Project Settings → API). Compilar con `npm run build` y publicar `dist/` en cualquier hosting estático.
+4. En **Authentication → Users**, crear o invitar al primer usuario: queda **ADMIN** automáticamente. Los siguientes quedan como **LECTOR**; el rol se asigna en la sección **Usuarios** de la app.
+5. Recomendado: en Authentication → Providers, desactivar el registro público (*Allow new users to sign up*), para que solo el administrador cree cuentas.
+6. Para migrar los datos locales: en la versión local, **Respaldo → Exportar**; en la versión Supabase (como ADMIN), **Respaldo → Importar**. La importación es idempotente, conserva folios y bitácora, y ajusta los correlativos.
+
+### Roles
+| Rol | Permisos |
+|---|---|
+| ADMIN | Todo: maestros, tarifas, inventario, usuarios, importación |
+| OPERADOR | Registros, recepción (check-in/out, cargos, no show), emisión y anulación de EDP |
+| LECTOR | Solo consulta |
+
+La seguridad la impone la base de datos (RLS, funciones y triggers); la interfaz solo oculta lo que el rol no puede hacer.
+
+### Garantías en el servidor
+- `guardar_registro`: registro, tramos, cargos y bitácora en **una transacción**; si algo falla, no queda nada a medias.
+- Bloqueo optimista: si otro usuario modificó el registro, el guardado se rechaza con aviso.
+- Anti-sobreventa, tramos contiguos, tarifas sin solapes, EDP inmutable y bitácora append-only, mediante restricciones y triggers.
+- Auditoría técnica de cada cambio en la tabla `auditoria`.
+
+> En modo local, los datos viven solo en ese navegador: exporte respaldos periódicamente.

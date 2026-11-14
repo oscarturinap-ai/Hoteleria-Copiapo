@@ -19,7 +19,7 @@ export function RespaldoPage() {
       const parsed: unknown = JSON.parse(await file.text());
       validarSnapshot(parsed);
       const ok = window.confirm(
-        `Se reemplazarán TODOS los datos actuales por el respaldo:\n` +
+        (s.sesion ? 'Se importará el respaldo a la base central (agrega/actualiza, no borra):\n' : `Se reemplazarán TODOS los datos actuales por el respaldo:\n`) +
           `${parsed.registros.length} registros, ${parsed.estadosPago.length} EDP, ${parsed.empresas.length} empresas.\n\n` +
           '¿Continuar? Recomendado: exportar un respaldo actual antes.',
       );
@@ -35,14 +35,21 @@ export function RespaldoPage() {
     <div className="pagina">
       <div className="panel">
         <h3>Respaldo de datos</h3>
-        <p className="hint">
-          Los datos se guardan en este navegador (localStorage). No se comparten entre equipos ni usuarios.
-          Exporte respaldos periódicamente hasta la migración a base de datos central.
-        </p>
+        {s.sesion ? (
+          <p className="hint">
+            Datos centralizados en Supabase. "Restaurar" importa un respaldo (p. ej. el JSON exportado desde la versión local) sin
+            borrar lo existente: agrega o actualiza por identificador y es seguro repetirlo. Requiere rol ADMIN.
+          </p>
+        ) : (
+          <p className="hint">
+            Los datos se guardan en este navegador (localStorage). No se comparten entre equipos ni usuarios.
+            Exporte respaldos periódicamente hasta la migración a base de datos central.
+          </p>
+        )}
         <div className="fila">
           <button className="btn primario" onClick={exportar}>Exportar respaldo JSON</button>
-          <label className="btn">
-            Restaurar desde archivo…
+          <label className={`btn ${s.esAdmin ? '' : 'oculto'}`}>
+            {s.sesion ? 'Importar respaldo…' : 'Restaurar desde archivo…'}
             <input type="file" accept="application/json" hidden onChange={(e) => e.target.files?.[0] && importar(e.target.files[0])} />
           </label>
         </div>

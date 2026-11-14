@@ -51,7 +51,7 @@ export function PanelDiaPage() {
         {fecha !== hoy && <button className="btn" onClick={() => setFecha(hoy)}>Hoy</button>}
         <b className="titulo-fecha">{new Date(`${fecha}T12:00:00`).toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</b>
         <div className="espaciador" />
-        <button className="btn primario" onClick={() => setAbierto('nuevo')}>+ Nuevo registro</button>
+        <button className="btn primario" disabled={!s.puedeEscribir} onClick={() => setAbierto('nuevo')}>+ Nuevo registro</button>
       </div>
 
       <div className="kpis">

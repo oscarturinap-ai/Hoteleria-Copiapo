@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { describirCambios, normalizarRut, validarRegistro } from '../domain';
 import type { AccionRegistro, Empresa, EstadoPago, Habitacion, Hotel, Id, Registro, Solicitante, Tarifa } from '../domain';
 import type { Repository, Snapshot } from '../persistence/repository';
+import type { Sesion } from './auth';
 
 export interface Datos {
   hoteles: Hotel[];
@@ -27,6 +28,12 @@ interface Store extends Datos {
   /** Operador responsable (queda en la bitácora). Reemplazable por el usuario autenticado. */
   operador: string;
   setOperador: (nombre: string) => void;
+  /** Sesión autenticada (modo Supabase) o null (modo local). */
+  sesion: Sesion | null;
+  /** Puede crear/modificar registros y emitir EDP (ADMIN u OPERADOR; siempre en modo local). */
+  puedeEscribir: boolean;
+  /** Puede modificar maestros, tarifas e inventario (ADMIN; siempre en modo local). */
+  esAdmin: boolean;
   guardarRegistro: (antes: Registro | null, despues: Registro, accion?: AccionRegistro, detalle?: string) => Promise<ResultadoGuardar>;
 }
 
@@ -38,14 +45,16 @@ const Ctx = createContext<Store | null>(null);
 
 const VACIO: Datos = { hoteles: [], habitaciones: [], tarifas: [], empresas: [], solicitantes: [], registros: [], estadosPago: [] };
 
-export function StoreProvider({ repo, children }: { repo: Repository; children: ReactNode }) {
+export function StoreProvider({ repo, sesion = null, children }: { repo: Repository; sesion?: Sesion | null; children: ReactNode }) {
   const [datos, setDatos] = useState<Datos>(VACIO);
   const [cargando, setCargando] = useState(true);
-  const [operador, setOperadorState] = useState(() => localStorage.getItem(CLAVE_OPERADOR) ?? '');
+  const [operadorLocal, setOperadorState] = useState(() => localStorage.getItem(CLAVE_OPERADOR) ?? '');
   const setOperador = useCallback((n: string) => {
     setOperadorState(n);
     localStorage.setItem(CLAVE_OPERADOR, n);
   }, []);
+  // Con sesión, el operador es el usuario autenticado y no es editable.
+  const operador = sesion ? sesion.nombre : operadorLocal;
 
   const recargar = useCallback(async () => {
     const [hoteles, habitaciones, tarifas, empresas, solicitantes, registros, estadosPago] = await Promise.all([
@@ -82,7 +91,8 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
      */
     const guardarRegistro: Store['guardarRegistro'] = async (antes, despues, accion, detalle) => {
       if (!operador.trim()) return { ok: false, errores: ['Indique el operador responsable (barra superior) antes de guardar.'] };
-      if (antes) {
+      if (sesion && sesion.rol === 'LECTOR') return { ok: false, errores: ['Su rol (LECTOR) no permite modificar registros.'] };
+      if (antes && !repo.concurrenciaEnServidor) {
         // Concurrencia optimista: no sobrescribir una versión más nueva.
         const vigente = (await repo.registros.list()).find((x) => x.id === antes.id);
         if (vigente && vigente.actualizadoEn !== antes.actualizadoEn) {
@@ -103,18 +113,23 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       const det = detalle ?? (antes ? describirCambios(antes, despues, { hotel: nombreHotel, empresa: nombreEmpresa, solicitante: nombreSolicitante, habitacion: nombreHabitacion }) : 'Registro creado');
       if (antes && acc === 'EDITADO' && !det) return { ok: true, registro: antes }; // sin cambios
       const ts = ahora();
-      const folio = despues.folio || (await repo.siguiente('folioRegistro'));
-      const guardado = await repo.registros.upsert({
-        ...despues,
-        folio,
-        huesped: { rut: normalizarRut(despues.huesped.rut), nombre: despues.huesped.nombre.trim().replace(/\s+/g, ' ') },
-        noShow: despues.estado === 'NO_SHOW' ? despues.noShow : null,
-        historial: [...(antes?.historial ?? despues.historial ?? []), { en: ts, usuario: operador.trim(), accion: acc, detalle: det }],
-        creadoEn: despues.creadoEn || ts,
-        actualizadoEn: ts,
-      });
-      await recargar();
-      return { ok: true, registro: guardado };
+      try {
+        const folio = despues.folio || (await repo.siguiente('folioRegistro'));
+        const guardado = await repo.registros.upsert({
+          ...despues,
+          folio,
+          huesped: { rut: normalizarRut(despues.huesped.rut), nombre: despues.huesped.nombre.trim().replace(/\s+/g, ' ') },
+          noShow: despues.estado === 'NO_SHOW' ? despues.noShow : null,
+          historial: [...(antes?.historial ?? despues.historial ?? []), { en: ts, usuario: operador.trim(), accion: acc, detalle: det }],
+          creadoEn: despues.creadoEn || ts,
+          actualizadoEn: ts,
+        });
+        await recargar();
+        return { ok: true, registro: guardado };
+      } catch (e) {
+        // Rechazos del backend (conflicto de versión, sobreventa, permisos): se informan, no se pierden.
+        return { ok: false, errores: [e instanceof Error ? e.message : String(e)] };
+      }
     };
 
     return {
@@ -124,6 +139,9 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       recargar,
       operador,
       setOperador,
+      sesion,
+      puedeEscribir: !sesion || sesion.rol !== 'LECTOR',
+      esAdmin: !sesion || sesion.rol === 'ADMIN',
       guardarRegistro,
       nombreHotel,
       nombreHabitacion,
@@ -135,7 +153,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
         await recargar();
       },
     };
-  }, [datos, repo, cargando, recargar, operador, setOperador]);
+  }, [datos, repo, cargando, recargar, operador, setOperador, sesion]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

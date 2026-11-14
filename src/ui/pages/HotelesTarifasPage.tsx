@@ -68,6 +68,7 @@ export function HotelesTarifasPage() {
 
   return (
     <div className="pagina">
+      {!s.esAdmin && <div className="solo-lectura">Solo lectura: la edición de esta sección requiere rol ADMIN.</div>}
       <div className="panel">
         <h3>Hoteles</h3>
         <table className="tabla compacta">

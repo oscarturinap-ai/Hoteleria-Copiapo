@@ -94,6 +94,8 @@ supabase/migrations/0004_api_aplicacion.sql      Perfiles, vista de dominio, gua
 | **Local** | Sin variables de Supabase | localStorage del navegador | Un equipo; operador escrito a mano |
 | **Supabase** | Con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` | PostgreSQL central | Login con email/contraseña; operador = usuario |
 
+> **Qué falta y cómo seguir (paso a paso + prompts): [`docs/PENDIENTES.md`](docs/PENDIENTES.md).**
+
 > **Guía paso a paso (Supabase + Vercel): [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md).** Instalación SQL en un solo archivo: `supabase/setup_completo.sql`.
 
 ### Puesta en marcha en Supabase
